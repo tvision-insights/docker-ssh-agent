@@ -3,32 +3,38 @@ group "linux" {
     "alpine",
     "debian",
     "debian_jdk21-preview",
+    "ubuntu",
   ]
 }
 
 group "linux-arm64" {
   targets = [
-    "debian",
     "alpine_jdk21",
+    "debian",
+    "ubuntu",
   ]
 }
 
 group "linux-arm32" {
   targets = [
     "debian_jdk21-preview",
+    "ubuntu",
   ]
 }
 
 group "linux-s390x" {
   targets = [
     "debian_jdk11",
-    "debian_jdk21"
+    "debian_jdk21",
+    "ubuntu_jdk11",
+    "ubuntu_jdk21",
   ]
 }
 
 group "linux-ppc64le" {
   targets = [
-    "debian"
+    "debian",
+    "ubuntu",
   ]
 }
 
@@ -76,6 +82,10 @@ variable "DEBIAN_RELEASE" {
   default = "bookworm-20240513"
 }
 
+variable "UBUNTU_RELEASE" {
+  default = "22.04"
+}
+
 variable "default_jdk" {
   default = 17
 }
@@ -106,6 +116,14 @@ function "alpine_platforms" {
 
 # Return an array of Debian platforms to use depending on the jdk passed as parameter
 function "debian_platforms" {
+  params = [jdk]
+  result = (equal(17, jdk)
+    ? ["linux/amd64", "linux/arm64", "linux/ppc64le"]
+  : ["linux/amd64", "linux/arm64", "linux/ppc64le", "linux/s390x"])
+}
+
+# Return an array of Ubuntu platforms to use depending on the jdk passed as parameter
+function "ubuntu_platforms" {
   params = [jdk]
   result = (equal(17, jdk)
     ? ["linux/amd64", "linux/arm64", "linux/ppc64le"]
@@ -185,4 +203,32 @@ target "debian_jdk21-preview" {
     "${REGISTRY}/${JENKINS_REPO}:latest-jdk21-preview",
   ]
   platforms = ["linux/arm/v7"]
+}
+
+target "ubuntu" {
+  matrix = {
+    jdk = [11, 17, 21]
+  }
+  name       = "ubuntu_${jdk}"
+  dockerfile = "ubuntu/Dockerfile"
+  context    = "."
+  args = {
+    JAVA_VERSION   = "${javaversion(jdk)}"
+    UBUNTU_RELEASE = UBUNTU_RELEASE
+  }
+  tags = [
+    # If there is a tag, add versioned tag suffixed by the jdk
+    equal(ON_TAG, "true") ? "${REGISTRY}/${JENKINS_REPO}:${VERSION}-jdk${jdk}" : "",
+    # If there is a tag and if the jdk is the default one, add versioned short tag
+    equal(ON_TAG, "true") ? (is_default_jdk(jdk) ? "${REGISTRY}/${JENKINS_REPO}:${VERSION}" : "") : "",
+    # If the jdk is the default one, add latest short tag
+    is_default_jdk(jdk) ? "${REGISTRY}/${JENKINS_REPO}:latest" : "",
+    "${REGISTRY}/${JENKINS_REPO}:jammy-jdk${jdk}",
+    "${REGISTRY}/${JENKINS_REPO}:ubuntu-jdk${jdk}",
+    "${REGISTRY}/${JENKINS_REPO}:jdk${jdk}",
+    "${REGISTRY}/${JENKINS_REPO}:latest-jammy-jdk${jdk}",
+    "${REGISTRY}/${JENKINS_REPO}:latest-ubuntu-jdk${jdk}",
+    "${REGISTRY}/${JENKINS_REPO}:latest-jdk${jdk}",
+  ]
+  platforms = ubuntu_platforms(jdk)
 }

@@ -1,0 +1,55 @@
+---
+name: Bump Ubuntu 22.04 Jammy version
+
+scms:
+  default:
+    kind: github
+    spec:
+      user: "{{ .github.user }}"
+      email: "{{ .github.email }}"
+      owner: "{{ .github.owner }}"
+      repository: "{{ .github.repository }}"
+      token: "{{ requiredEnv .github.token }}"
+      username: "{{ .github.username }}"
+      branch: "{{ .github.branch }}"
+
+sources:
+  jammyLatestVersion:
+    kind: dockerimage
+    name: "Get the latest Ubuntu 22.04 Jammy Linux version"
+    spec:
+      image: "ubuntu"
+      tagfilter: "jammy-*"
+      versionfilter:
+        kind: regex
+        pattern: >-
+          jammy-\d+$
+
+targets:
+  updateDockerfile:
+    name: "Update the value of the base image (ARG UBUNTU_RELEASE) in the Dockerfile"
+    kind: dockerfile
+    sourceid: jammyLatestVersion
+    spec:
+      file: ubuntu/Dockerfile
+      instruction:
+        keyword: "ARG"
+        matcher: "UBUNTU_RELEASE"
+    scmid: default
+  updateDockerBake:
+    name: "Update the default value of the variable UBUNTU_RELEASE in the docker-bake.hcl"
+    kind: hcl
+    sourceid: jammyLatestVersion
+    spec:
+      file: docker-bake.hcl
+      path: variable.UBUNTU_RELEASE.default
+    scmid: default
+
+actions:
+  default:
+    kind: github/pullrequest
+    scmid: default
+    title: Bump Ubuntu 22.04 Jammy Linux version to {{ source "jammyLatestVersion" }}
+    spec:
+      labels:
+        - dependencies
