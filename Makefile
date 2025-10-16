@@ -26,7 +26,7 @@ bake_base_cli := docker buildx bake --file docker-bake.hcl
 bake_cli := $(bake_base_cli) --load
 
 .PHONY: build
-.PHONY: test test-alpine test-debian
+.PHONY: test test-alpine test-debian test-ubuntu
 
 check-reqs:
 ## Build requirements

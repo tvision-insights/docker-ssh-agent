@@ -75,6 +75,19 @@ targets:
         keyword: ARG
         matcher: JAVA_VERSION
     scmid: default
+  setJDK17VersionUbuntu:
+    name: "Bump JDK17 default ARG version on Ubuntu Dockerfile"
+    kind: dockerfile
+    transformers:
+      - replacer:
+          from: "+"
+          to: "_"
+    spec:
+      file: ubuntu/Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: JAVA_VERSION
+    scmid: default
 
 actions:
   default:

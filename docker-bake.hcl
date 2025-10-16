@@ -2,6 +2,7 @@ group "linux" {
   targets = [
     "alpine",
     "debian",
+    "ubuntu",
   ]
 }
 
@@ -16,18 +17,21 @@ group "linux-arm64" {
   targets = [
     "debian",
     "alpine_jdk21",
+    "ubuntu",
   ]
 }
 
 group "linux-s390x" {
   targets = [
-    "debian_jdk21"
+    "debian_jdk21",
+    "ubuntu_jdk21",
   ]
 }
 
 group "linux-ppc64le" {
   targets = [
-    "debian"
+    "debian",
+    "ubuntu",
   ]
 }
 
@@ -75,6 +79,10 @@ variable "DEBIAN_RELEASE" {
   default = "trixie-20250929"
 }
 
+variable "UBUNTU_RELEASE" {
+  default = "22.04"
+}
+
 # Set this value to a specific Windows version to override Windows versions to build returned by windowsversions function
 variable "WINDOWS_VERSION_OVERRIDE" {
   default = ""
@@ -106,6 +114,14 @@ function "alpine_platforms" {
 
 # Return an array of Debian platforms to use depending on the jdk passed as parameter
 function "debian_platforms" {
+  params = [jdk]
+  result = (equal(17, jdk)
+    ? ["linux/amd64", "linux/arm64", "linux/ppc64le"]
+  : ["linux/amd64", "linux/arm64", "linux/ppc64le", "linux/s390x"])
+}
+
+# Return an array of Ubuntu platforms to use depending on the jdk passed as parameter
+function "ubuntu_platforms" {
   params = [jdk]
   result = (equal(17, jdk)
     ? ["linux/amd64", "linux/arm64", "linux/ppc64le"]
@@ -212,6 +228,34 @@ target "nanoserver" {
     "${REGISTRY}/${JENKINS_REPO}:nanoserver-${windows_version}-jdk${jdk}",
   ]
   platforms = ["windows/amd64"]
+}
+
+target "ubuntu" {
+  matrix = {
+    jdk = jdks_to_build
+  }
+  name       = "ubuntu_${jdk}"
+  dockerfile = "ubuntu/Dockerfile"
+  context    = "."
+  args = {
+    JAVA_VERSION   = "${javaversion(jdk)}"
+    UBUNTU_RELEASE = UBUNTU_RELEASE
+  }
+  tags = [
+    # If there is a tag, add versioned tag suffixed by the jdk
+    equal(ON_TAG, "true") ? "${REGISTRY}/${JENKINS_REPO}:${VERSION}-jdk${jdk}" : "",
+    # If there is a tag and if the jdk is the default one, add versioned short tag
+    equal(ON_TAG, "true") ? (is_default_jdk(jdk) ? "${REGISTRY}/${JENKINS_REPO}:${VERSION}" : "") : "",
+    # If the jdk is the default one, add latest short tag
+    is_default_jdk(jdk) ? "${REGISTRY}/${JENKINS_REPO}:latest" : "",
+    "${REGISTRY}/${JENKINS_REPO}:jammy-jdk${jdk}",
+    "${REGISTRY}/${JENKINS_REPO}:ubuntu-jdk${jdk}",
+    "${REGISTRY}/${JENKINS_REPO}:jdk${jdk}",
+    "${REGISTRY}/${JENKINS_REPO}:latest-jammy-jdk${jdk}",
+    "${REGISTRY}/${JENKINS_REPO}:latest-ubuntu-jdk${jdk}",
+    "${REGISTRY}/${JENKINS_REPO}:latest-jdk${jdk}",
+  ]
+  platforms = ubuntu_platforms(jdk)
 }
 
 target "windowsservercore" {
